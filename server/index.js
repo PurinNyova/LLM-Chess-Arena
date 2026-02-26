@@ -243,6 +243,58 @@ app.post('/api/models', async (req, res) => {
   }
 });
 
+// ── Fetch models using server .env credentials (PurinNyova API preset) ──
+app.post('/api/models/default', async (req, res) => {
+  const apiUrl = process.env.WHITE_API_URL || process.env.BLACK_API_URL || '';
+  const apiKey = process.env.WHITE_API_KEY || process.env.BLACK_API_KEY || '';
+  if (!apiUrl || !apiKey) {
+    return res.status(400).json({ error: 'Server .env API credentials are not configured' });
+  }
+
+  // Derive models endpoint
+  let modelsUrl;
+  try {
+    const url = new URL(apiUrl);
+    const pathParts = url.pathname.replace(/\/+$/, '').split('/');
+    while (pathParts.length > 0) {
+      const last = pathParts[pathParts.length - 1];
+      if (['chat', 'completions'].includes(last)) {
+        pathParts.pop();
+      } else {
+        break;
+      }
+    }
+    pathParts.push('models');
+    url.pathname = pathParts.join('/');
+    modelsUrl = url.toString();
+  } catch {
+    return res.status(400).json({ error: 'Invalid server API URL' });
+  }
+
+  const cacheKey = `default|${modelsUrl}|${apiKey}`;
+  const cached = modelCache.get(cacheKey);
+  if (cached && Date.now() - cached.fetchedAt < 5 * 60 * 1000) {
+    return res.json({ models: cached.models });
+  }
+
+  try {
+    const response = await fetch(modelsUrl, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!response.ok) {
+      const errText = await response.text();
+      return res.status(response.status).json({ error: `Models API returned ${response.status}: ${errText}` });
+    }
+    const data = await response.json();
+    const models = (data.data || []).map(m => ({ id: m.id, name: m.id })).sort((a, b) => a.id.localeCompare(b.id));
+
+    modelCache.set(cacheKey, { models, fetchedAt: Date.now() });
+    res.json({ models });
+  } catch (err) {
+    res.status(500).json({ error: `Failed to fetch models: ${err.message}` });
+  }
+});
+
 // ── Stop game ──
 app.post('/api/game/stop', (req, res) => {
   const token = getToken(req);

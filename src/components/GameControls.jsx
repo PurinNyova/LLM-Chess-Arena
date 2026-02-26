@@ -52,17 +52,23 @@ export default function GameControls({
     increment: '0',
     unlimited: true,
     playerMode: 'llm_vs_llm', // 'llm_vs_llm', 'human_white', 'human_black'
+    whiteProvider: 'purinnyova', // 'purinnyova' or 'custom'
+    blackProvider: 'purinnyova',
   });
 
   // Model list fetching
   const [whiteModels, setWhiteModels] = useState([]);
   const [blackModels, setBlackModels] = useState([]);
+  const [defaultModels, setDefaultModels] = useState([]);
   const [whiteModelsLoading, setWhiteModelsLoading] = useState(false);
   const [blackModelsLoading, setBlackModelsLoading] = useState(false);
+  const [defaultModelsLoading, setDefaultModelsLoading] = useState(false);
   const [whiteModelsFailed, setWhiteModelsFailed] = useState(false);
   const [blackModelsFailed, setBlackModelsFailed] = useState(false);
+  const [defaultModelsFailed, setDefaultModelsFailed] = useState(false);
   const whiteDebounce = useRef(null);
   const blackDebounce = useRef(null);
+  const defaultModelsFetched = useRef(false);
 
   const fetchModels = useCallback(async (apiUrl, apiKey, side) => {
     const setModels = side === 'white' ? setWhiteModels : setBlackModels;
@@ -98,6 +104,39 @@ export default function GameControls({
     }
   }, []);
 
+  // Fetch models for the PurinNyova API preset (server .env credentials)
+  const fetchDefaultModels = useCallback(async () => {
+    if (defaultModelsFetched.current) return;
+    defaultModelsFetched.current = true;
+    setDefaultModelsLoading(true);
+    setDefaultModelsFailed(false);
+    try {
+      const res = await fetch('/api/models/default', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      const data = await res.json();
+      if (res.ok && data.models) {
+        setDefaultModels(data.models);
+        setDefaultModelsFailed(false);
+      } else {
+        setDefaultModels([]);
+        setDefaultModelsFailed(true);
+      }
+    } catch {
+      setDefaultModels([]);
+      setDefaultModelsFailed(true);
+    } finally {
+      setDefaultModelsLoading(false);
+    }
+  }, []);
+
+  // Fetch default models when modal opens
+  useEffect(() => {
+    if (isOpen) fetchDefaultModels();
+  }, [isOpen, fetchDefaultModels]);
+
   // Debounced model fetching for white
   useEffect(() => {
     clearTimeout(whiteDebounce.current);
@@ -118,13 +157,27 @@ export default function GameControls({
 
   const handleStart = async () => {
     try {
-      // Only send non-empty fields (server will use .env fallbacks)
       const body = {};
-      for (const [k, v] of Object.entries(config)) {
-        if (k === 'unlimited' || k === 'playerMode') continue;
-        if (k === 'baseTime' || k === 'increment') continue;
-        if (typeof v === 'string' && v.trim()) body[k] = v.trim();
+
+      // White side config — only send custom API fields when provider is 'custom'
+      if (config.playerMode !== 'human_white') {
+        if (config.whiteProvider === 'custom') {
+          if (config.whiteApiUrl.trim()) body.whiteApiUrl = config.whiteApiUrl.trim();
+          if (config.whiteApiKey.trim()) body.whiteApiKey = config.whiteApiKey.trim();
+        }
+        // Always send model (from either provider mode)
+        if (config.whiteModel.trim()) body.whiteModel = config.whiteModel.trim();
       }
+
+      // Black side config
+      if (config.playerMode !== 'human_black') {
+        if (config.blackProvider === 'custom') {
+          if (config.blackApiUrl.trim()) body.blackApiUrl = config.blackApiUrl.trim();
+          if (config.blackApiKey.trim()) body.blackApiKey = config.blackApiKey.trim();
+        }
+        if (config.blackModel.trim()) body.blackModel = config.blackModel.trim();
+      }
+
       // Time control
       if (!config.unlimited) {
         body.baseTime = parseFloat(config.baseTime) || 10;
@@ -325,7 +378,7 @@ export default function GameControls({
           <ModalCloseButton />
           <ModalBody>
             <Text fontSize="xs" color="gray.400" mb={4}>
-              Leave fields empty to use values from the server's .env file.
+              Select "PurinNyova API" to use server credentials, or "Custom" for your own.
             </Text>
 
             <FormControl mb={4}>
@@ -348,6 +401,19 @@ export default function GameControls({
                 <Text fontWeight="bold" mb={2}>♔ White Player</Text>
             <VStack spacing={2} mb={4}>
               <FormControl size="sm">
+                <FormLabel fontSize="xs">API Provider</FormLabel>
+                <Select
+                  size="sm"
+                  value={config.whiteProvider}
+                  onChange={e => setConfig(c => ({ ...c, whiteProvider: e.target.value }))}
+                >
+                  <option value="purinnyova">PurinNyova API</option>
+                  <option value="custom">Custom</option>
+                </Select>
+              </FormControl>
+              {config.whiteProvider === 'custom' && (
+                <>
+              <FormControl size="sm">
                 <FormLabel fontSize="xs">API URL</FormLabel>
                 <Input
                   size="sm"
@@ -366,9 +432,34 @@ export default function GameControls({
                   onChange={e => setConfig(c => ({ ...c, whiteApiKey: e.target.value }))}
                 />
               </FormControl>
+                </>
+              )}
               <FormControl>
-                <FormLabel fontSize="xs">Model {whiteModelsLoading && <Spinner size="xs" ml={1} />}</FormLabel>
-                {whiteModels.length > 0 && !whiteModelsFailed ? (
+                <FormLabel fontSize="xs">
+                  Model {config.whiteProvider === 'purinnyova' ? (defaultModelsLoading && <Spinner size="xs" ml={1} />) : (whiteModelsLoading && <Spinner size="xs" ml={1} />)}
+                </FormLabel>
+                {config.whiteProvider === 'purinnyova' ? (
+                  defaultModels.length > 0 && !defaultModelsFailed ? (
+                    <Select
+                      size="sm"
+                      placeholder="Select a model"
+                      value={config.whiteModel}
+                      onChange={e => setConfig(c => ({ ...c, whiteModel: e.target.value }))}
+                    >
+                      {defaultModels.map(m => (
+                        <option key={m.id} value={m.id}>{m.name}</option>
+                      ))}
+                    </Select>
+                  ) : (
+                    <Input
+                      size="sm"
+                      placeholder="gpt-4"
+                      value={config.whiteModel}
+                      onChange={e => setConfig(c => ({ ...c, whiteModel: e.target.value }))}
+                    />
+                  )
+                ) : (
+                  whiteModels.length > 0 && !whiteModelsFailed ? (
                   <Select
                     size="sm"
                     placeholder="Select a model"
@@ -386,6 +477,7 @@ export default function GameControls({
                     value={config.whiteModel}
                     onChange={e => setConfig(c => ({ ...c, whiteModel: e.target.value }))}
                   />
+                )
                 )}
               </FormControl>
             </VStack>
@@ -398,6 +490,19 @@ export default function GameControls({
               <>
                 <Text fontWeight="bold" mb={2}>♚ Black Player</Text>
             <VStack spacing={2}>
+              <FormControl size="sm">
+                <FormLabel fontSize="xs">API Provider</FormLabel>
+                <Select
+                  size="sm"
+                  value={config.blackProvider}
+                  onChange={e => setConfig(c => ({ ...c, blackProvider: e.target.value }))}
+                >
+                  <option value="purinnyova">PurinNyova API</option>
+                  <option value="custom">Custom</option>
+                </Select>
+              </FormControl>
+              {config.blackProvider === 'custom' && (
+                <>
               <FormControl>
                 <FormLabel fontSize="xs">API URL</FormLabel>
                 <Input
@@ -417,9 +522,34 @@ export default function GameControls({
                   onChange={e => setConfig(c => ({ ...c, blackApiKey: e.target.value }))}
                 />
               </FormControl>
+                </>
+              )}
               <FormControl>
-                <FormLabel fontSize="xs">Model {blackModelsLoading && <Spinner size="xs" ml={1} />}</FormLabel>
-                {blackModels.length > 0 && !blackModelsFailed ? (
+                <FormLabel fontSize="xs">
+                  Model {config.blackProvider === 'purinnyova' ? (defaultModelsLoading && <Spinner size="xs" ml={1} />) : (blackModelsLoading && <Spinner size="xs" ml={1} />)}
+                </FormLabel>
+                {config.blackProvider === 'purinnyova' ? (
+                  defaultModels.length > 0 && !defaultModelsFailed ? (
+                    <Select
+                      size="sm"
+                      placeholder="Select a model"
+                      value={config.blackModel}
+                      onChange={e => setConfig(c => ({ ...c, blackModel: e.target.value }))}
+                    >
+                      {defaultModels.map(m => (
+                        <option key={m.id} value={m.id}>{m.name}</option>
+                      ))}
+                    </Select>
+                  ) : (
+                    <Input
+                      size="sm"
+                      placeholder="gpt-4"
+                      value={config.blackModel}
+                      onChange={e => setConfig(c => ({ ...c, blackModel: e.target.value }))}
+                    />
+                  )
+                ) : (
+                  blackModels.length > 0 && !blackModelsFailed ? (
                   <Select
                     size="sm"
                     placeholder="Select a model"
@@ -437,6 +567,7 @@ export default function GameControls({
                     value={config.blackModel}
                     onChange={e => setConfig(c => ({ ...c, blackModel: e.target.value }))}
                   />
+                )
                 )}
               </FormControl>
             </VStack>
