@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { Game } from './chess/Game.js';
 import { Board } from './chess/Board.js';
@@ -13,37 +14,83 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ── State ──
-let currentGame = null;
-let sseClients = [];
+// ── State ── per-session game storage
+const games = new Map();      // token → Game
+const sseClients = new Map(); // token → Set<res>
 const modelCache = new Map(); // key: `${apiUrl}|${apiKey}` → { models, fetchedAt }
+const IDLE_CLEANUP_MS = 60 * 60 * 1000; // 1 hour
 
-function broadcast(event, data) {
-  const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-  sseClients.forEach(res => res.write(payload));
+/** Get or create a token from the request query/header */
+function getToken(req) {
+  return req.query.token || req.headers['x-session-token'] || null;
 }
+
+/** Send an SSE event to all clients for a specific token */
+function broadcastToToken(token, event, data) {
+  const clients = sseClients.get(token);
+  if (!clients) return;
+  const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+  for (const res of clients) {
+    res.write(payload);
+  }
+}
+
+// ── Token endpoint ──
+app.post('/api/token', (req, res) => {
+  const token = crypto.randomUUID();
+  res.json({ token });
+});
+
+// Periodic cleanup of finished/idle games
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, game] of games) {
+    if (game.result && game._finishedAt && now - game._finishedAt > IDLE_CLEANUP_MS) {
+      games.delete(token);
+      sseClients.delete(token);
+    }
+  }
+}, 5 * 60 * 1000); // check every 5 minutes
 
 // ── SSE endpoint ──
 app.get('/api/game/stream', (req, res) => {
+  const token = getToken(req);
+  if (!token) {
+    return res.status(400).json({ error: 'Token is required' });
+  }
+
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders();
 
-  // Send current state immediately
-  if (currentGame) {
-    res.write(`event: state\ndata: ${JSON.stringify(currentGame.getState())}\n\n`);
+  // Send current state immediately if a game exists for this token
+  const game = games.get(token);
+  if (game) {
+    res.write(`event: state\ndata: ${JSON.stringify(game.getState())}\n\n`);
   }
 
-  sseClients.push(res);
+  if (!sseClients.has(token)) {
+    sseClients.set(token, new Set());
+  }
+  sseClients.get(token).add(res);
+
   req.on('close', () => {
-    sseClients = sseClients.filter(c => c !== res);
+    const clients = sseClients.get(token);
+    if (clients) {
+      clients.delete(res);
+      if (clients.size === 0) sseClients.delete(token);
+    }
   });
 });
 
 // ── Start a new game ──
 app.post('/api/game/start', (req, res) => {
-  if (currentGame && !currentGame.result) {
+  const token = getToken(req);
+  if (!token) return res.status(400).json({ error: 'Token is required' });
+
+  const existingGame = games.get(token);
+  if (existingGame && !existingGame.result) {
     return res.status(409).json({ error: 'A game is already in progress' });
   }
 
@@ -75,21 +122,24 @@ app.post('/api/game/start', (req, res) => {
     }
   }
 
-  currentGame = new Game(config, (event, data) => {
-    broadcast(event, data);
+  const game = new Game(config, (event, data) => {
+    broadcastToToken(token, event, data);
   });
+  games.set(token, game);
 
-  res.json({ message: 'Game started', state: currentGame.getState() });
+  res.json({ message: 'Game started', state: game.getState() });
 
   // Run the game loop asynchronously (don't await in the request handler)
-  currentGame.play().catch(err => {
-    broadcast('error', { message: `Game error: ${err.message}` });
+  game.play().catch(err => {
+    broadcastToToken(token, 'error', { message: `Game error: ${err.message}` });
   });
 });
 
 // ── Get current state ──
 app.get('/api/game/state', (req, res) => {
-  if (!currentGame) {
+  const token = getToken(req);
+  const game = token ? games.get(token) : null;
+  if (!game) {
     // Return initial empty board state
     const board = new Board();
     return res.json({
@@ -102,19 +152,21 @@ app.get('/api/game/state', (req, res) => {
       blackModel: null,
     });
   }
-  res.json(currentGame.getState());
+  res.json(game.getState());
 });
 
 // ── Human move ──
 app.post('/api/game/move', (req, res) => {
-  if (!currentGame || currentGame.result) {
+  const token = getToken(req);
+  const game = token ? games.get(token) : null;
+  if (!game || game.result) {
     return res.status(400).json({ error: 'No active game' });
   }
   const { move } = req.body;
   if (!move) {
     return res.status(400).json({ error: 'Move is required' });
   }
-  const result = currentGame.applyHumanMove(move);
+  const result = game.applyHumanMove(move);
   if (result.error) {
     return res.status(400).json({ error: result.error });
   }
@@ -123,7 +175,9 @@ app.post('/api/game/move', (req, res) => {
 
 // ── Get legal moves for a square ──
 app.get('/api/game/legal-moves', (req, res) => {
-  if (!currentGame || currentGame.result) {
+  const token = getToken(req);
+  const game = token ? games.get(token) : null;
+  if (!game || game.result) {
     return res.json({ moves: [] });
   }
   const file = parseInt(req.query.file);
@@ -131,7 +185,7 @@ app.get('/api/game/legal-moves', (req, res) => {
   if (isNaN(file) || isNaN(rank)) {
     return res.status(400).json({ error: 'file and rank are required' });
   }
-  const moves = currentGame.board.getLegalMoves(file, rank);
+  const moves = game.board.getLegalMoves(file, rank);
   res.json({ moves });
 });
 
@@ -191,20 +245,27 @@ app.post('/api/models', async (req, res) => {
 
 // ── Stop game ──
 app.post('/api/game/stop', (req, res) => {
-  if (!currentGame || currentGame.result) {
+  const token = getToken(req);
+  const game = token ? games.get(token) : null;
+  if (!game || game.result) {
     return res.status(400).json({ error: 'No active game to stop' });
   }
-  currentGame.stop();
-  broadcast('gameOver', { result: currentGame.result, pgn: '' });
+  game.stop();
+  broadcastToToken(token, 'gameOver', { result: game.result, pgn: '' });
   res.json({ message: 'Game stopped' });
 });
 
 // ── Reset game ──
 app.post('/api/game/reset', (req, res) => {
-  currentGame = null;
-  broadcast('status', { message: 'Game reset' });
+  const token = getToken(req);
+  if (token) {
+    const game = games.get(token);
+    if (game && !game.result) game.stop();
+    games.delete(token);
+  }
   const board = new Board();
-  broadcast('board', { squares: board.toJSON(), turn: 'WHITE' });
+  broadcastToToken(token, 'status', { message: 'Game reset' });
+  broadcastToToken(token, 'board', { squares: board.toJSON(), turn: 'WHITE' });
   res.json({ message: 'Game reset' });
 });
 

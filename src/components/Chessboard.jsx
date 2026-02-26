@@ -33,7 +33,7 @@ const COLORS = {
  * onSubmitMove: (notation: string) => void
  * flipped: whether to flip the board (for black player)
  */
-export default function Chessboard({ board, lastMove, isHumanTurn, humanColor, onSubmitMove, flipped }) {
+export default function Chessboard({ board, lastMove, isHumanTurn, humanColor, onSubmitMove, flipped, sessionToken }) {
   const [selectedSquare, setSelectedSquare] = useState(null); // { row, col } in display coords
   const [legalMoves, setLegalMoves] = useState([]); // [{ file, rank }]
 
@@ -109,7 +109,7 @@ export default function Chessboard({ board, lastMove, isHumanTurn, humanColor, o
       setSelectedSquare({ row: displayRow, col: displayCol });
       // Fetch legal moves
       try {
-        const res = await fetch(`/api/game/legal-moves?file=${file}&rank=${rank}`);
+        const res = await fetch(`/api/game/legal-moves?file=${file}&rank=${rank}&token=${encodeURIComponent(sessionToken || '')}`);
         const data = await res.json();
         setLegalMoves(data.moves || []);
       } catch {

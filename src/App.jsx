@@ -13,6 +13,7 @@ export default function App() {
     whiteModel, blackModel, lastMove,
     chatLog, connected, gameActive, captured, clock, humanSide,
     startGame, resetGame, stopGame, submitMove,
+    sessionToken,
   } = useGameStream();
 
   const bgColor = useColorModeValue('gray.100', 'gray.900');
@@ -76,6 +77,7 @@ export default function App() {
               humanColor={humanSide}
               onSubmitMove={submitMove}
               flipped={flipped}
+              sessionToken={sessionToken}
             />
             {/* Captured pieces by white (black pieces taken) - shown below board */}
             <Box w="100%" maxW="576px" px={1} mt={1}>

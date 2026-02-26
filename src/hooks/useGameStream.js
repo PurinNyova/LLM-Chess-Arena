@@ -1,9 +1,21 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
+/** Generate or retrieve a persistent session token */
+function getSessionToken() {
+  let token = localStorage.getItem('chess-session-token');
+  if (!token) {
+    token = crypto.randomUUID();
+    localStorage.setItem('chess-session-token', token);
+  }
+  return token;
+}
+
 /**
  * Custom hook that connects to the game SSE stream and manages game state.
  */
 export function useGameStream() {
+  const tokenRef = useRef(getSessionToken());
+  const token = tokenRef.current;
   const [board, setBoard] = useState(null);
   const [turn, setTurn] = useState('WHITE');
   const [pgn, setPgn] = useState('');
@@ -31,7 +43,7 @@ export function useGameStream() {
       eventSourceRef.current.close();
     }
 
-    const es = new EventSource('/api/game/stream');
+    const es = new EventSource(`/api/game/stream?token=${encodeURIComponent(token)}`);
     eventSourceRef.current = es;
 
     es.onopen = () => setConnected(true);
@@ -112,13 +124,13 @@ export function useGameStream() {
       setGameActive(false);
       addChatEntry({ type: 'gameOver', ...data });
     });
-  }, [addChatEntry]);
+  }, [addChatEntry, token]);
 
   // Auto-connect on mount
   useEffect(() => {
     connect();
     // Fetch initial state
-    fetch('/api/game/state')
+    fetch(`/api/game/state?token=${encodeURIComponent(token)}`)
       .then(r => r.json())
       .then(data => {
         setBoard(data.board);
@@ -127,7 +139,13 @@ export function useGameStream() {
         setMoveCount(data.moveCount);
         setResult(data.result);
         if (data.whiteModel) setWhiteModel(data.whiteModel);
-        if (data.blackModel) setBlackModel(data.blackModel);      if (data.captured) setCaptured(data.captured);      })
+        if (data.blackModel) setBlackModel(data.blackModel);
+        if (data.captured) setCaptured(data.captured);
+        if (data.clock !== undefined) setClock(data.clock);
+        if (data.humanSide !== undefined) setHumanSide(data.humanSide);
+        // Restore gameActive if a game is in progress
+        if (data.whiteModel && !data.result) setGameActive(true);
+      })
       .catch(() => {});
 
     return () => {
@@ -146,7 +164,7 @@ export function useGameStream() {
     setClock(null);
     setHumanSide(config.humanSide || null);
 
-    const res = await fetch('/api/game/start', {
+    const res = await fetch(`/api/game/start?token=${encodeURIComponent(token)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config),
@@ -163,10 +181,10 @@ export function useGameStream() {
       setBlackModel(data.state.blackModel);
     }
     return data;
-  }, []);
+  }, [token]);
 
   const resetGame = useCallback(async () => {
-    await fetch('/api/game/reset', { method: 'POST' });
+    await fetch(`/api/game/reset?token=${encodeURIComponent(token)}`, { method: 'POST' });
     setChatLog([]);
     setResult(null);
     setLastMove(null);
@@ -174,23 +192,23 @@ export function useGameStream() {
     setPgn('');
     setGameActive(false);
     // Fetch fresh board
-    const res = await fetch('/api/game/state');
+    const res = await fetch(`/api/game/state?token=${encodeURIComponent(token)}`);
     const data = await res.json();
     setBoard(data.board);
     setTurn(data.turn);
-  }, []);
+  }, [token]);
 
   const stopGame = useCallback(async () => {
-    const res = await fetch('/api/game/stop', { method: 'POST' });
+    const res = await fetch(`/api/game/stop?token=${encodeURIComponent(token)}`, { method: 'POST' });
     const data = await res.json();
     if (res.ok) {
       setGameActive(false);
     }
     return data;
-  }, []);
+  }, [token]);
 
   const submitMove = useCallback(async (move) => {
-    const res = await fetch('/api/game/move', {
+    const res = await fetch(`/api/game/move?token=${encodeURIComponent(token)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ move }),
@@ -200,12 +218,13 @@ export function useGameStream() {
       throw new Error(data.error || 'Invalid move');
     }
     return data;
-  }, []);
+  }, [token]);
 
   return {
     board, turn, pgn, moveCount, result,
     whiteModel, blackModel, lastMove,
     chatLog, connected, gameActive, captured, clock, humanSide,
     startGame, resetGame, stopGame, submitMove,
+    sessionToken: token,
   };
 }

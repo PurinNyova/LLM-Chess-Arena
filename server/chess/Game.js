@@ -94,6 +94,7 @@ export class Game {
       this.clockInterval = null;
     }
 
+    this._finishedAt = Date.now();
     this.emit('gameOver', { result: this.result, pgn: this.history.toPGN() });
   }
 
