@@ -155,13 +155,20 @@ export class Game {
       }
     } else {
       // LLM turn (existing logic)
+      let lastIllegalMove = null; // Track last illegal move for retry injection
       for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
       if (this.aborted) return;
       try {
         let thinkingBuf = '';
 
+        // Build user message, injecting illegal move warning on retries
+        let turnMessage = userMessage;
+        if (lastIllegalMove) {
+          turnMessage += `\n\nIMPORTANT: Your last move "${lastIllegalMove}" was ILLEGAL. That move is not valid in the current position. Please carefully analyze the board and provide a different, legal move.`;
+        }
+
         // Call LLM with streaming
-        const rawResponse = await client.chat(systemPrompt, userMessage, (type, text) => {
+        const rawResponse = await client.chat(systemPrompt, turnMessage, (type, text) => {
           if (type === 'thinking') {
             thinkingBuf += text;
             this.emit('thinking', { color, model, text, accumulated: thinkingBuf });
@@ -186,6 +193,7 @@ export class Game {
         if (appliedMove) {
           break;
         } else {
+          lastIllegalMove = moveStr;
           this.emit('error', {
             color,
             model,
