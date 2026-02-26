@@ -14,6 +14,8 @@ export class Board {
     this.blackCanCastleQueenside = true;
     this.enPassantTarget = null; // { file, rank } | null
     this.halfMoveClock = 0;
+    this.capturedByWhite = []; // pieces captured by white (i.e. black pieces taken)
+    this.capturedByBlack = []; // pieces captured by black (i.e. white pieces taken)
     this._setupInitialPosition();
   }
 
@@ -57,6 +59,8 @@ export class Board {
     b.blackCanCastleQueenside = this.blackCanCastleQueenside;
     b.enPassantTarget = this.enPassantTarget ? { ...this.enPassantTarget } : null;
     b.halfMoveClock = this.halfMoveClock;
+    b.capturedByWhite = [...this.capturedByWhite];
+    b.capturedByBlack = [...this.capturedByBlack];
     return b;
   }
 
@@ -108,7 +112,19 @@ export class Board {
     if (piece.type === PieceType.PAWN && this.enPassantTarget &&
         move.to.file === this.enPassantTarget.file && move.to.rank === this.enPassantTarget.rank) {
       const capRank = color === Color.WHITE ? move.to.rank - 1 : move.to.rank + 1;
+      const capturedPiece = this.getPiece(move.to.file, capRank);
+      if (capturedPiece) {
+        if (color === Color.WHITE) this.capturedByWhite.push(capturedPiece.type);
+        else this.capturedByBlack.push(capturedPiece.type);
+      }
       this._setPiece(move.to.file, capRank, null);
+    } else {
+      // Normal capture
+      const destPiece = this.getPiece(move.to.file, move.to.rank);
+      if (destPiece) {
+        if (color === Color.WHITE) this.capturedByWhite.push(destPiece.type);
+        else this.capturedByBlack.push(destPiece.type);
+      }
     }
 
     // Update en passant target

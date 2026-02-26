@@ -42,6 +42,10 @@ export class Game {
       result: this.result,
       whiteModel: this.whiteModel,
       blackModel: this.blackModel,
+      captured: {
+        white: this.board.capturedByWhite,
+        black: this.board.capturedByBlack,
+      },
     };
   }
 
@@ -144,6 +148,10 @@ export class Game {
       squares: this.board.toJSON(),
       turn: oppositeColor(color),
       lastMove: { from: appliedMove.from, to: appliedMove.to },
+      captured: {
+        white: this.board.capturedByWhite,
+        black: this.board.capturedByBlack,
+      },
     });
 
     // Check game-over conditions

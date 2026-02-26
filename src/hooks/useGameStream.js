@@ -15,6 +15,7 @@ export function useGameStream() {
   const [chatLog, setChatLog] = useState([]);
   const [connected, setConnected] = useState(false);
   const [gameActive, setGameActive] = useState(false);
+  const [captured, setCaptured] = useState({ white: [], black: [] });
 
   const eventSourceRef = useRef(null);
 
@@ -50,6 +51,7 @@ export function useGameStream() {
       setBoard(data.squares);
       if (data.turn) setTurn(data.turn);
       if (data.lastMove) setLastMove(data.lastMove);
+      if (data.captured) setCaptured(data.captured);
     });
 
     es.addEventListener('move', (e) => {
@@ -115,8 +117,7 @@ export function useGameStream() {
         setMoveCount(data.moveCount);
         setResult(data.result);
         if (data.whiteModel) setWhiteModel(data.whiteModel);
-        if (data.blackModel) setBlackModel(data.blackModel);
-      })
+        if (data.blackModel) setBlackModel(data.blackModel);      if (data.captured) setCaptured(data.captured);      })
       .catch(() => {});
 
     return () => {
@@ -131,6 +132,7 @@ export function useGameStream() {
     setMoveCount(0);
     setPgn('');
     setGameActive(true);
+    setCaptured({ white: [], black: [] });
 
     const res = await fetch('/api/game/start', {
       method: 'POST',
@@ -178,7 +180,7 @@ export function useGameStream() {
   return {
     board, turn, pgn, moveCount, result,
     whiteModel, blackModel, lastMove,
-    chatLog, connected, gameActive,
+    chatLog, connected, gameActive, captured,
     startGame, resetGame, stopGame,
   };
 }
