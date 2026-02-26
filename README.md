@@ -84,7 +84,7 @@ npm install
 Create a `.env` file in the project root (optional, you can also enter credentials in the UI):
 
 ```env
-# Default API settings (used by the PurinNyova API preset)
+# Default API settings (used by the Default API preset)
 WHITE_API_URL=https://api.openai.com/v1/chat/completions
 WHITE_API_KEY=sk-your-api-key
 WHITE_MODEL=gpt-4
@@ -130,7 +130,7 @@ node server/index.js
 
 1. **Open the app** in your browser at `http://localhost:5173`
 2. **Click the settings icon** to configure the game
-3. **Choose an API provider**, use the PurinNyova API preset (server `.env` credentials) or enter custom API URL/key
+3. **Choose an API provider**, use the Default API preset (server `.env` credentials) or enter custom API URL/key
 4. **Select models** for White and Black from the auto-discovered model list
 5. **Set time controls** (optional), base time in minutes and increment in seconds
 6. **Choose play mode**, LLM vs LLM (spectate) or Human vs LLM (play as White or Black)

@@ -105,7 +105,7 @@ export default function GameControls({
     }
   }, []);
 
-  // Fetch models for the PurinNyova API preset (server .env credentials)
+  // Fetch models for the Default API preset (server .env credentials)
   const fetchDefaultModels = useCallback(async () => {
     if (defaultModelsFetched.current) return;
     defaultModelsFetched.current = true;
@@ -191,7 +191,7 @@ export default function GameControls({
         body.humanSide = 'BLACK';
       }
 
-      // Bypass password (only sent when using PurinNyova API)
+      // Bypass password (only sent when using Default API)
       if (config.bypassPassword.trim()) {
         body.password = config.bypassPassword.trim();
       }
@@ -202,7 +202,7 @@ export default function GameControls({
       if (data && data.bypass === false) {
         toast({
           title: 'Rate limit active',
-          description: 'Bypass not enabled — 20 min cooldown between PurinNyova API games.',
+          description: 'Bypass not enabled — 20 min cooldown between games.',
           status: 'info',
           duration: 5000,
           isClosable: true,
@@ -398,7 +398,7 @@ export default function GameControls({
           <ModalCloseButton />
           <ModalBody>
             <Text fontSize="xs" color="gray.400" mb={4}>
-              Select "PurinNyova API" to use server credentials, or "Custom" for your own.
+              Select "Default API" to use server credentials, or "Custom" for your own.
             </Text>
 
             <FormControl mb={4}>
@@ -427,7 +427,7 @@ export default function GameControls({
                   value={config.whiteProvider}
                   onChange={e => setConfig(c => ({ ...c, whiteProvider: e.target.value }))}
                 >
-                  <option value="purinnyova">PurinNyova API</option>
+                  <option value="purinnyova">Default API</option>
                   <option value="custom">Custom</option>
                 </Select>
               </FormControl>
@@ -517,7 +517,7 @@ export default function GameControls({
                   value={config.blackProvider}
                   onChange={e => setConfig(c => ({ ...c, blackProvider: e.target.value }))}
                 >
-                  <option value="purinnyova">PurinNyova API</option>
+                  <option value="purinnyova">Default API</option>
                   <option value="custom">Custom</option>
                 </Select>
               </FormControl>
@@ -636,7 +636,7 @@ export default function GameControls({
             {(config.whiteProvider === 'purinnyova' || config.blackProvider === 'purinnyova') && (
               <>
                 <Divider my={3} />
-                <Text fontWeight="bold" mb={2}>🔑 PurinNyova API Limit Bypass</Text>
+                <Text fontWeight="bold" mb={2}>🔑 Default API Limit Bypass</Text>
                 <FormControl>
                   <FormLabel fontSize="xs">Bypass Password (optional)</FormLabel>
                   <Input
@@ -647,7 +647,7 @@ export default function GameControls({
                     onChange={e => setConfig(c => ({ ...c, bypassPassword: e.target.value }))}
                   />
                   <Text fontSize="2xs" color="gray.500" mt={1}>
-                    Without bypass, you can only start 1 game every 20 minutes using the PurinNyova API.
+                    Without bypass, you can only start 1 game every 20 minutes using the Default API.
                   </Text>
                 </FormControl>
               </>
