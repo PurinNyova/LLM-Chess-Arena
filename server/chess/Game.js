@@ -4,11 +4,13 @@ import { LLMClient } from './LLMClient.js';
 import { Color, oppositeColor, colorName } from './Piece.js';
 
 const SYSTEM_PROMPT_TEMPLATE =
-  'You are playing chess as {{color}}, your next response should just be your move ' +
-  'in chess algebraic notation. consider your every move carefully, when you move a ' +
-  'piece cross check with the previous location to see if it is legal (trace the ' +
-  'movement). Keep a mental image of all the pieces by using the move history. ' +
-  'example response "bxd3". don\'t say extra words nor explanations, just the move.';
+  'You are playing chess as {{color}}. Respond ONLY with a JSON object containing two keys:\n' +
+  '1. "move" — your move in standard algebraic notation (e.g. "e4", "Nf3", "bxd3", "O-O")\n' +
+  '2. "dialogue" — a short, entertaining comment, trash talk, or commentary about the position or your move (1-2 sentences, show personality!)\n\n' +
+  'Consider your every move carefully. When you move a piece, cross-check with the previous location to see if it is legal (trace the movement). ' +
+  'Keep a mental image of all the pieces by using the move history.\n\n' +
+  'Example response: {"move": "Nf3", "dialogue": "The knight rides forth! Let\'s see how you handle this."}\n' +
+  'Respond with ONLY the JSON object, no extra text.';
 
 /**
  * Manages a chess game between two LLM players.
@@ -175,13 +177,15 @@ export class Game {
           }
         });
 
-        moveStr = this._cleanMoveResponse(rawResponse);
+        const parsed = this._parseResponse(rawResponse);
+        moveStr = parsed.move;
 
         this.emit('chat', {
           color,
           model,
           raw: rawResponse,
           move: moveStr,
+          dialogue: parsed.dialogue,
           thinking: thinkingBuf || null,
           attempt,
           moveNumber,
@@ -304,9 +308,32 @@ export class Game {
     this.currentTurn = opponent;
   }
 
-  _cleanMoveResponse(response) {
+  /**
+   * Parse the LLM response, trying JSON first, then falling back to regex.
+   * Returns { move: string, dialogue: string | null }
+   */
+  _parseResponse(response) {
     // Strip any <think>...</think> blocks that may have leaked through
     let clean = response.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+
+    // Try JSON parse first
+    try {
+      // Extract JSON object from the response (in case there's extra text around it)
+      const jsonMatch = clean.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.move) {
+          return {
+            move: parsed.move.trim(),
+            dialogue: parsed.dialogue || null,
+          };
+        }
+      }
+    } catch {
+      // JSON parsing failed, fall back to text extraction
+    }
+
+    // Fallback: treat as plain text move (legacy behavior)
     if (clean.startsWith('"') && clean.endsWith('"')) {
       clean = clean.slice(1, -1).trim();
     }
@@ -314,12 +341,12 @@ export class Game {
     if (parts.length > 1) {
       for (const part of parts) {
         const candidate = part.replace(/[.!?]$/, '');
-        if (this._looksLikeMove(candidate)) return candidate;
+        if (this._looksLikeMove(candidate)) return { move: candidate, dialogue: null };
       }
       clean = parts[parts.length - 1];
     }
     clean = clean.replace(/[.!?]+$/, '');
-    return clean;
+    return { move: clean, dialogue: null };
   }
 
   _looksLikeMove(s) {
