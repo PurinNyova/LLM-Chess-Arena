@@ -121,10 +121,14 @@ function ChatEntry({ entry }) {
         px={3}
         py={2}
         mx={2}
+        ml={isWhite ? 2 : 'auto'}
+        mr={isWhite ? 'auto' : 2}
+        maxW="85%"
         bg={isWhite ? whiteBg : blackBg}
-        borderRadius="md"
-        borderLeft="3px solid"
-        borderLeftColor={isWhite ? 'white' : 'gray.500'}
+        borderRadius="lg"
+        borderTopLeftRadius={isWhite ? 'sm' : 'lg'}
+        borderTopRightRadius={isWhite ? 'lg' : 'sm'}
+        boxShadow="sm"
       >
         <HStack mb={1} justify="space-between">
           <HStack>
@@ -135,10 +139,17 @@ function ChatEntry({ entry }) {
               Move {entry.moveNumber}{entry.attempt > 1 ? ` (attempt ${entry.attempt})` : ''}
             </Text>
           </HStack>
-          <Badge colorScheme="green" fontSize="sm" fontFamily="mono">
-            {entry.move}
-          </Badge>
         </HStack>
+
+        {entry.dialogue && (
+          <Text fontSize="sm" mb={2} fontStyle="italic" color={isWhite ? 'gray.300' : 'gray.200'}>
+            "{entry.dialogue}"
+          </Text>
+        )}
+
+        <Badge colorScheme="green" fontSize="sm" fontFamily="mono" px={2} py={0.5} borderRadius="md">
+          {entry.move}
+        </Badge>
 
         <ThinkingBlock text={entry.thinking} />
       </Box>
