@@ -166,10 +166,19 @@ export function useGameStream() {
     setTurn(data.turn);
   }, []);
 
+  const stopGame = useCallback(async () => {
+    const res = await fetch('/api/game/stop', { method: 'POST' });
+    const data = await res.json();
+    if (res.ok) {
+      setGameActive(false);
+    }
+    return data;
+  }, []);
+
   return {
     board, turn, pgn, moveCount, result,
     whiteModel, blackModel, lastMove,
     chatLog, connected, gameActive,
-    startGame, resetGame,
+    startGame, resetGame, stopGame,
   };
 }

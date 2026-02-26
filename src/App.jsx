@@ -10,7 +10,7 @@ export default function App() {
     board, turn, pgn, moveCount, result,
     whiteModel, blackModel, lastMove,
     chatLog, connected, gameActive,
-    startGame, resetGame,
+    startGame, resetGame, stopGame,
   } = useGameStream();
 
   const bgColor = useColorModeValue('gray.100', 'gray.900');
@@ -43,6 +43,7 @@ export default function App() {
               pgn={pgn}
               onStartGame={startGame}
               onResetGame={resetGame}
+              onStopGame={stopGame}
             />
           </Box>
           <Box display="flex" justifyContent="center">

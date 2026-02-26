@@ -34,6 +34,7 @@ export default function GameControls({
   pgn,
   onStartGame,
   onResetGame,
+  onStopGame,
 }) {
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -192,6 +193,18 @@ export default function GameControls({
         >
           {result ? 'New Game' : 'Start Game'}
         </Button>
+        {gameActive && !result && (
+          <Button
+            colorScheme="red"
+            size="sm"
+            onClick={async () => {
+              await onStopGame();
+              toast({ title: 'Game stopped', status: 'warning', duration: 2000 });
+            }}
+          >
+            Stop Game
+          </Button>
+        )}
         <Button
           colorScheme="red"
           variant="outline"

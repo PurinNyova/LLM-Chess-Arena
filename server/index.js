@@ -90,6 +90,16 @@ app.get('/api/game/state', (req, res) => {
   res.json(currentGame.getState());
 });
 
+// ── Stop game ──
+app.post('/api/game/stop', (req, res) => {
+  if (!currentGame || currentGame.result) {
+    return res.status(400).json({ error: 'No active game to stop' });
+  }
+  currentGame.stop();
+  broadcast('gameOver', { result: currentGame.result, pgn: '' });
+  res.json({ message: 'Game stopped' });
+});
+
 // ── Reset game ──
 app.post('/api/game/reset', (req, res) => {
   currentGame = null;

@@ -28,6 +28,8 @@ export class Game {
 
     this.whiteModel = config.whiteModel;
     this.blackModel = config.blackModel;
+
+    this.aborted = false;
   }
 
   /** Returns current state snapshot */
@@ -48,7 +50,7 @@ export class Game {
     this.emit('status', { message: `Game started! White: ${this.whiteModel} vs Black: ${this.blackModel}` });
     this.emit('board', { squares: this.board.toJSON(), turn: this.currentTurn });
 
-    while (!this.result) {
+    while (!this.result && !this.aborted) {
       await this._playTurn();
     }
 
@@ -72,6 +74,7 @@ export class Game {
     let appliedMove = null;
 
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+      if (this.aborted) return;
       try {
         let thinkingBuf = '';
 
@@ -191,5 +194,13 @@ export class Game {
     if (!s) return false;
     if (['O-O', 'O-O-O', '0-0', '0-0-0'].includes(s)) return true;
     return /^[KQRBNa-h][a-h1-8x=+#]*$/.test(s);
+  }
+
+  /** Immediately stop the game */
+  stop() {
+    this.aborted = true;
+    if (!this.result) {
+      this.result = 'Game stopped by user';
+    }
   }
 }
