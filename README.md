@@ -95,6 +95,9 @@ BLACK_MODEL=gpt-4
 
 MAX_RETRIES=3
 PORT=3001
+
+# bypass password to skip the provided API rate limit per session
+BYPASS_PASSWORD=
 ```
 
 ### Running
