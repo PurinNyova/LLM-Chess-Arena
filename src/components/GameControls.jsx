@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Box,
   Button,
@@ -18,8 +18,10 @@ import {
   FormControl,
   FormLabel,
   Input,
+  Select,
   Divider,
   Icon,
+  Spinner,
 } from '@chakra-ui/react';
 import { DownloadIcon } from '@chakra-ui/icons';
 
@@ -47,6 +49,68 @@ export default function GameControls({
     blackApiKey: '',
     blackModel: '',
   });
+
+  // Model list fetching
+  const [whiteModels, setWhiteModels] = useState([]);
+  const [blackModels, setBlackModels] = useState([]);
+  const [whiteModelsLoading, setWhiteModelsLoading] = useState(false);
+  const [blackModelsLoading, setBlackModelsLoading] = useState(false);
+  const [whiteModelsFailed, setWhiteModelsFailed] = useState(false);
+  const [blackModelsFailed, setBlackModelsFailed] = useState(false);
+  const whiteDebounce = useRef(null);
+  const blackDebounce = useRef(null);
+
+  const fetchModels = useCallback(async (apiUrl, apiKey, side) => {
+    const setModels = side === 'white' ? setWhiteModels : setBlackModels;
+    const setLoading = side === 'white' ? setWhiteModelsLoading : setBlackModelsLoading;
+    const setFailed = side === 'white' ? setWhiteModelsFailed : setBlackModelsFailed;
+
+    if (!apiUrl || !apiKey) {
+      setModels([]);
+      setFailed(false);
+      return;
+    }
+    setLoading(true);
+    setFailed(false);
+    try {
+      const res = await fetch('/api/models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiUrl, apiKey }),
+      });
+      const data = await res.json();
+      if (res.ok && data.models) {
+        setModels(data.models);
+        setFailed(false);
+      } else {
+        setModels([]);
+        setFailed(true);
+      }
+    } catch {
+      setModels([]);
+      setFailed(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Debounced model fetching for white
+  useEffect(() => {
+    clearTimeout(whiteDebounce.current);
+    whiteDebounce.current = setTimeout(() => {
+      fetchModels(config.whiteApiUrl, config.whiteApiKey, 'white');
+    }, 500);
+    return () => clearTimeout(whiteDebounce.current);
+  }, [config.whiteApiUrl, config.whiteApiKey, fetchModels]);
+
+  // Debounced model fetching for black
+  useEffect(() => {
+    clearTimeout(blackDebounce.current);
+    blackDebounce.current = setTimeout(() => {
+      fetchModels(config.blackApiUrl, config.blackApiKey, 'black');
+    }, 500);
+    return () => clearTimeout(blackDebounce.current);
+  }, [config.blackApiUrl, config.blackApiKey, fetchModels]);
 
   const handleStart = async () => {
     try {
@@ -269,13 +333,26 @@ export default function GameControls({
                 />
               </FormControl>
               <FormControl>
-                <FormLabel fontSize="xs">Model</FormLabel>
-                <Input
-                  size="sm"
-                  placeholder="gpt-4"
-                  value={config.whiteModel}
-                  onChange={e => setConfig(c => ({ ...c, whiteModel: e.target.value }))}
-                />
+                <FormLabel fontSize="xs">Model {whiteModelsLoading && <Spinner size="xs" ml={1} />}</FormLabel>
+                {whiteModels.length > 0 && !whiteModelsFailed ? (
+                  <Select
+                    size="sm"
+                    placeholder="Select a model"
+                    value={config.whiteModel}
+                    onChange={e => setConfig(c => ({ ...c, whiteModel: e.target.value }))}
+                  >
+                    {whiteModels.map(m => (
+                      <option key={m.id} value={m.id}>{m.name}</option>
+                    ))}
+                  </Select>
+                ) : (
+                  <Input
+                    size="sm"
+                    placeholder="gpt-4"
+                    value={config.whiteModel}
+                    onChange={e => setConfig(c => ({ ...c, whiteModel: e.target.value }))}
+                  />
+                )}
               </FormControl>
             </VStack>
 
@@ -303,13 +380,26 @@ export default function GameControls({
                 />
               </FormControl>
               <FormControl>
-                <FormLabel fontSize="xs">Model</FormLabel>
-                <Input
-                  size="sm"
-                  placeholder="gpt-4"
-                  value={config.blackModel}
-                  onChange={e => setConfig(c => ({ ...c, blackModel: e.target.value }))}
-                />
+                <FormLabel fontSize="xs">Model {blackModelsLoading && <Spinner size="xs" ml={1} />}</FormLabel>
+                {blackModels.length > 0 && !blackModelsFailed ? (
+                  <Select
+                    size="sm"
+                    placeholder="Select a model"
+                    value={config.blackModel}
+                    onChange={e => setConfig(c => ({ ...c, blackModel: e.target.value }))}
+                  >
+                    {blackModels.map(m => (
+                      <option key={m.id} value={m.id}>{m.name}</option>
+                    ))}
+                  </Select>
+                ) : (
+                  <Input
+                    size="sm"
+                    placeholder="gpt-4"
+                    value={config.blackModel}
+                    onChange={e => setConfig(c => ({ ...c, blackModel: e.target.value }))}
+                  />
+                )}
               </FormControl>
             </VStack>
           </ModalBody>
