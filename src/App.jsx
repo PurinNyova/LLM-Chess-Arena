@@ -4,13 +4,14 @@ import Chessboard from './components/Chessboard';
 import ChatLog from './components/ChatLog';
 import GameControls from './components/GameControls';
 import CapturedPieces, { materialValue } from './components/CapturedPieces';
+import ChessClock from './components/ChessClock';
 import { useGameStream } from './hooks/useGameStream';
 
 export default function App() {
   const {
     board, turn, pgn, moveCount, result,
     whiteModel, blackModel, lastMove,
-    chatLog, connected, gameActive, captured,
+    chatLog, connected, gameActive, captured, clock,
     startGame, resetGame, stopGame,
   } = useGameStream();
 
@@ -53,6 +54,12 @@ export default function App() {
             />
           </Box>
           <Box display="flex" flexDirection="column" alignItems="center">
+            {/* Chess Clock */}
+            {clock && (
+              <Box mb={2} w="100%" maxW="576px">
+                <ChessClock clock={clock} turn={turn} gameActive={gameActive} result={result} />
+              </Box>
+            )}
             {/* Captured pieces by black (white pieces taken) - shown above board */}
             <Box w="100%" maxW="576px" px={1} mb={1}>
               <CapturedPieces

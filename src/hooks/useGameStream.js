@@ -16,6 +16,7 @@ export function useGameStream() {
   const [connected, setConnected] = useState(false);
   const [gameActive, setGameActive] = useState(false);
   const [captured, setCaptured] = useState({ white: [], black: [] });
+  const [clock, setClock] = useState(null); // { whiteTime, blackTime } or null
 
   const eventSourceRef = useRef(null);
 
@@ -44,6 +45,8 @@ export function useGameStream() {
       setResult(data.result);
       setWhiteModel(data.whiteModel);
       setBlackModel(data.blackModel);
+      if (data.captured) setCaptured(data.captured);
+      if (data.clock !== undefined) setClock(data.clock);
     });
 
     es.addEventListener('board', (e) => {
@@ -52,6 +55,11 @@ export function useGameStream() {
       if (data.turn) setTurn(data.turn);
       if (data.lastMove) setLastMove(data.lastMove);
       if (data.captured) setCaptured(data.captured);
+    });
+
+    es.addEventListener('clock', (e) => {
+      const data = JSON.parse(e.data);
+      setClock(data);
     });
 
     es.addEventListener('move', (e) => {
@@ -133,6 +141,7 @@ export function useGameStream() {
     setPgn('');
     setGameActive(true);
     setCaptured({ white: [], black: [] });
+    setClock(null);
 
     const res = await fetch('/api/game/start', {
       method: 'POST',
@@ -180,7 +189,7 @@ export function useGameStream() {
   return {
     board, turn, pgn, moveCount, result,
     whiteModel, blackModel, lastMove,
-    chatLog, connected, gameActive, captured,
+    chatLog, connected, gameActive, captured, clock,
     startGame, resetGame, stopGame,
   };
 }

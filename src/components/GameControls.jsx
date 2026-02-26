@@ -48,6 +48,9 @@ export default function GameControls({
     blackApiUrl: '',
     blackApiKey: '',
     blackModel: '',
+    baseTime: '10',
+    increment: '0',
+    unlimited: true,
   });
 
   // Model list fetching
@@ -117,7 +120,14 @@ export default function GameControls({
       // Only send non-empty fields (server will use .env fallbacks)
       const body = {};
       for (const [k, v] of Object.entries(config)) {
-        if (v.trim()) body[k] = v.trim();
+        if (k === 'unlimited') continue;
+        if (k === 'baseTime' || k === 'increment') continue;
+        if (typeof v === 'string' && v.trim()) body[k] = v.trim();
+      }
+      // Time control
+      if (!config.unlimited) {
+        body.baseTime = parseFloat(config.baseTime) || 10;
+        body.increment = parseFloat(config.increment) || 0;
       }
       await onStartGame(body);
       onClose();
@@ -401,6 +411,45 @@ export default function GameControls({
                   />
                 )}
               </FormControl>
+            </VStack>
+
+            <Divider my={3} />
+
+            <Text fontWeight="bold" mb={2}>⏱ Time Control</Text>
+            <VStack spacing={2}>
+              <FormControl display="flex" alignItems="center">
+                <input
+                  type="checkbox"
+                  checked={config.unlimited}
+                  onChange={e => setConfig(c => ({ ...c, unlimited: e.target.checked }))}
+                  style={{ marginRight: '8px' }}
+                />
+                <FormLabel fontSize="xs" mb={0}>Unlimited time</FormLabel>
+              </FormControl>
+              {!config.unlimited && (
+                <HStack spacing={2} w="100%">
+                  <FormControl>
+                    <FormLabel fontSize="xs">Base time (min)</FormLabel>
+                    <Input
+                      size="sm"
+                      type="number"
+                      min="1"
+                      value={config.baseTime}
+                      onChange={e => setConfig(c => ({ ...c, baseTime: e.target.value }))}
+                    />
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel fontSize="xs">Increment (sec)</FormLabel>
+                    <Input
+                      size="sm"
+                      type="number"
+                      min="0"
+                      value={config.increment}
+                      onChange={e => setConfig(c => ({ ...c, increment: e.target.value }))}
+                    />
+                  </FormControl>
+                </HStack>
+              )}
             </VStack>
           </ModalBody>
           <ModalFooter>

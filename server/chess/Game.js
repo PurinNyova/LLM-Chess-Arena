@@ -30,6 +30,15 @@ export class Game {
     this.blackModel = config.blackModel;
 
     this.aborted = false;
+
+    // Time control
+    const baseTimeMs = config.baseTime != null ? config.baseTime * 60 * 1000 : null; // null = unlimited
+    this.timeWhite = baseTimeMs;
+    this.timeBlack = baseTimeMs;
+    this.increment = (config.increment || 0) * 1000; // seconds → ms
+    this.unlimited = baseTimeMs == null;
+    this.turnStartedAt = null;
+    this.clockInterval = null;
   }
 
   /** Returns current state snapshot */
@@ -46,6 +55,10 @@ export class Game {
         white: this.board.capturedByWhite,
         black: this.board.capturedByBlack,
       },
+      clock: this.unlimited ? null : {
+        whiteTime: this.timeWhite,
+        blackTime: this.timeBlack,
+      },
     };
   }
 
@@ -54,11 +67,45 @@ export class Game {
     this.emit('status', { message: `Game started! White: ${this.whiteModel} vs Black: ${this.blackModel}` });
     this.emit('board', { squares: this.board.toJSON(), turn: this.currentTurn });
 
+    // Start clock tick interval (every 1s) if time control is active
+    if (!this.unlimited) {
+      this._emitClock();
+      this.clockInterval = setInterval(() => {
+        if (this.result || this.aborted) {
+          clearInterval(this.clockInterval);
+          return;
+        }
+        // Deduct elapsed time from the active player for display purposes
+        this._emitClock();
+      }, 1000);
+    }
+
     while (!this.result && !this.aborted) {
       await this._playTurn();
     }
 
+    if (this.clockInterval) {
+      clearInterval(this.clockInterval);
+      this.clockInterval = null;
+    }
+
     this.emit('gameOver', { result: this.result, pgn: this.history.toPGN() });
+  }
+
+  _emitClock() {
+    if (this.unlimited) return;
+    // Calculate live time remaining for active player
+    let whiteTime = this.timeWhite;
+    let blackTime = this.timeBlack;
+    if (this.turnStartedAt) {
+      const elapsed = Date.now() - this.turnStartedAt;
+      if (this.currentTurn === Color.WHITE) {
+        whiteTime = Math.max(0, whiteTime - elapsed);
+      } else {
+        blackTime = Math.max(0, blackTime - elapsed);
+      }
+    }
+    this.emit('clock', { whiteTime, blackTime });
   }
 
   async _playTurn() {
@@ -73,6 +120,9 @@ export class Game {
     this.emit('status', {
       message: `${colorName(color)}'s turn (${model}) — Move ${moveNumber}`,
     });
+
+    // Start timing this turn
+    this.turnStartedAt = Date.now();
 
     let moveStr = null;
     let appliedMove = null;
@@ -131,6 +181,30 @@ export class Game {
     if (!appliedMove) {
       this.result = `${colorName(oppositeColor(color))} wins by forfeit (${colorName(color)} failed to make a legal move)`;
       return;
+    }
+
+    // Deduct time and add increment
+    if (!this.unlimited && this.turnStartedAt) {
+      const elapsed = Date.now() - this.turnStartedAt;
+      if (color === Color.WHITE) {
+        this.timeWhite = Math.max(0, this.timeWhite - elapsed) + this.increment;
+        if (this.timeWhite <= 0) {
+          this.timeWhite = 0;
+          this.result = `${colorName(oppositeColor(color))} wins on time`;
+          this._emitClock();
+          return;
+        }
+      } else {
+        this.timeBlack = Math.max(0, this.timeBlack - elapsed) + this.increment;
+        if (this.timeBlack <= 0) {
+          this.timeBlack = 0;
+          this.result = `${colorName(oppositeColor(color))} wins on time`;
+          this._emitClock();
+          return;
+        }
+      }
+      this.turnStartedAt = null;
+      this._emitClock();
     }
 
     this.history.addMove(appliedMove.notation);
@@ -209,6 +283,10 @@ export class Game {
     this.aborted = true;
     if (!this.result) {
       this.result = 'Game stopped by user';
+    }
+    if (this.clockInterval) {
+      clearInterval(this.clockInterval);
+      this.clockInterval = null;
     }
   }
 }

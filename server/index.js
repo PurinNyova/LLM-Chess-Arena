@@ -55,6 +55,8 @@ app.post('/api/game/start', (req, res) => {
     blackApiKey: req.body.blackApiKey || process.env.BLACK_API_KEY || '',
     blackModel: req.body.blackModel || process.env.BLACK_MODEL || 'gpt-4',
     maxRetries: parseInt(req.body.maxRetries || process.env.MAX_RETRIES || '3', 10),
+    baseTime: req.body.baseTime != null ? parseFloat(req.body.baseTime) : null, // minutes or null for unlimited
+    increment: req.body.increment != null ? parseFloat(req.body.increment) : 0, // seconds
   };
 
   if (!config.whiteApiKey || !config.blackApiKey) {
