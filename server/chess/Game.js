@@ -202,6 +202,19 @@ export class Game {
           attempt,
           maxRetries: this.maxRetries,
         });
+
+        // Refund 2 minutes on fetch/network errors
+        if (!this.unlimited && (err.message.toLowerCase().includes('fetch') || err.message.toLowerCase().includes('econnrefused') || err.message.toLowerCase().includes('network') || err.message.toLowerCase().includes('enotfound') || err.message.toLowerCase().includes('timeout'))) {
+          const REFUND_MS = 2 * 60 * 1000; // 2 minutes
+          if (color === Color.WHITE) {
+            this.timeWhite += REFUND_MS;
+          } else {
+            this.timeBlack += REFUND_MS;
+          }
+          this._emitClock();
+          this.emit('status', { message: `2 minutes refunded to ${colorName(color)} due to API error` });
+        }
+
         if (attempt === this.maxRetries) break;
       }
     }
