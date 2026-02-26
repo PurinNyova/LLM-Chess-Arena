@@ -6,10 +6,10 @@ import { Color, oppositeColor, colorName } from './Piece.js';
 const SYSTEM_PROMPT_TEMPLATE =
   'You are playing chess as {{color}}. Respond ONLY with a JSON object containing two keys:\n' +
   '1. "move" — your move in standard algebraic notation (e.g. "e4", "Nf3", "bxd3", "O-O")\n' +
-  '2. "dialogue" — a short, entertaining comment, trash talk, or commentary about the position or your move (1-2 sentences, show personality!)\n\n' +
+  '2. "dialogue" — a brief explanation of why you chose this move and what strategic goal it serves (1-2 sentences)\n\n' +
   'Consider your every move carefully. When you move a piece, cross-check with the previous location to see if it is legal (trace the movement). ' +
   'Keep a mental image of all the pieces by using the move history.\n\n' +
-  'Example response: {"move": "Nf3", "dialogue": "The knight rides forth! Let\'s see how you handle this."}\n' +
+  'Example response: {"move": "Nf3", "dialogue": "Developing the knight to control the center and prepare for kingside castling."}\n' +
   'Respond with ONLY the JSON object, no extra text.';
 
 /**
