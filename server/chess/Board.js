@@ -512,6 +512,46 @@ export class Board {
     return this.halfMoveClock >= 100;
   }
 
+  /**
+   * Returns all legal destination squares for a piece at (file, rank).
+   * Used by the frontend for human-playable mode.
+   */
+  getLegalMoves(file, rank) {
+    const piece = this.getPiece(file, rank);
+    if (!piece) return [];
+
+    const color = piece.color;
+    const from = { file, rank };
+    const targets = this._generateTargets(piece.type, color, from);
+    const legalDests = [];
+
+    for (const to of targets) {
+      const ep = this.enPassantTarget;
+      const cap = !!this.getPiece(to.file, to.rank) ||
+        (piece.type === PieceType.PAWN && ep && to.file === ep.file && to.rank === ep.rank);
+      if (this._canPieceReach(piece.type, color, from, to, cap)) {
+        const test = this.copy();
+        test._executeMove({
+          from, to, pieceType: piece.type, promotion: null, capture: cap,
+          castleKS: false, castleQS: false, notation: '',
+        });
+        if (!test.isInCheck(color)) {
+          legalDests.push(to);
+        }
+      }
+    }
+
+    // Check castling for king
+    if (piece.type === PieceType.KING) {
+      const ks = this._resolveCastle(true, color);
+      if (ks) legalDests.push(ks.to);
+      const qs = this._resolveCastle(false, color);
+      if (qs) legalDests.push(qs.to);
+    }
+
+    return legalDests;
+  }
+
   /** Returns a serializable snapshot of the board for the frontend */
   toJSON() {
     const rows = [];

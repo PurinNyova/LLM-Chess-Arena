@@ -11,13 +11,14 @@ export default function App() {
   const {
     board, turn, pgn, moveCount, result,
     whiteModel, blackModel, lastMove,
-    chatLog, connected, gameActive, captured, clock,
-    startGame, resetGame, stopGame,
+    chatLog, connected, gameActive, captured, clock, humanSide,
+    startGame, resetGame, stopGame, submitMove,
   } = useGameStream();
 
   const bgColor = useColorModeValue('gray.100', 'gray.900');
 
-  // Material advantage calculation
+  const isHumanTurn = humanSide && turn === humanSide && gameActive && !result;
+  const flipped = humanSide === 'BLACK';
   const whiteMat = materialValue(captured.white); // value of black pieces captured by white
   const blackMat = materialValue(captured.black); // value of white pieces captured by black
   const whiteAdvantage = whiteMat - blackMat;
@@ -68,7 +69,14 @@ export default function App() {
                 advantage={whiteAdvantage < 0 ? -whiteAdvantage : 0}
               />
             </Box>
-            <Chessboard board={board} lastMove={lastMove} />
+            <Chessboard
+              board={board}
+              lastMove={lastMove}
+              isHumanTurn={isHumanTurn}
+              humanColor={humanSide}
+              onSubmitMove={submitMove}
+              flipped={flipped}
+            />
             {/* Captured pieces by white (black pieces taken) - shown below board */}
             <Box w="100%" maxW="576px" px={1} mt={1}>
               <CapturedPieces

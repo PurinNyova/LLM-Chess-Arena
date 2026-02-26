@@ -51,6 +51,7 @@ export default function GameControls({
     baseTime: '10',
     increment: '0',
     unlimited: true,
+    playerMode: 'llm_vs_llm', // 'llm_vs_llm', 'human_white', 'human_black'
   });
 
   // Model list fetching
@@ -120,7 +121,7 @@ export default function GameControls({
       // Only send non-empty fields (server will use .env fallbacks)
       const body = {};
       for (const [k, v] of Object.entries(config)) {
-        if (k === 'unlimited') continue;
+        if (k === 'unlimited' || k === 'playerMode') continue;
         if (k === 'baseTime' || k === 'increment') continue;
         if (typeof v === 'string' && v.trim()) body[k] = v.trim();
       }
@@ -128,6 +129,12 @@ export default function GameControls({
       if (!config.unlimited) {
         body.baseTime = parseFloat(config.baseTime) || 10;
         body.increment = parseFloat(config.increment) || 0;
+      }
+      // Player mode / human side
+      if (config.playerMode === 'human_white') {
+        body.humanSide = 'WHITE';
+      } else if (config.playerMode === 'human_black') {
+        body.humanSide = 'BLACK';
       }
       await onStartGame(body);
       onClose();
@@ -321,7 +328,24 @@ export default function GameControls({
               Leave fields empty to use values from the server's .env file.
             </Text>
 
-            <Text fontWeight="bold" mb={2}>♔ White Player</Text>
+            <FormControl mb={4}>
+              <FormLabel fontSize="xs" fontWeight="bold">Player Mode</FormLabel>
+              <Select
+                size="sm"
+                value={config.playerMode}
+                onChange={e => setConfig(c => ({ ...c, playerMode: e.target.value }))}
+              >
+                <option value="llm_vs_llm">LLM vs LLM</option>
+                <option value="human_white">Human (White) vs LLM (Black)</option>
+                <option value="human_black">LLM (White) vs Human (Black)</option>
+              </Select>
+            </FormControl>
+
+            <Divider my={3} />
+
+            {config.playerMode !== 'human_white' && (
+              <>
+                <Text fontWeight="bold" mb={2}>♔ White Player</Text>
             <VStack spacing={2} mb={4}>
               <FormControl size="sm">
                 <FormLabel fontSize="xs">API URL</FormLabel>
@@ -365,10 +389,14 @@ export default function GameControls({
                 )}
               </FormControl>
             </VStack>
+              </>
+            )}
 
             <Divider my={3} />
 
-            <Text fontWeight="bold" mb={2}>♚ Black Player</Text>
+            {config.playerMode !== 'human_black' && (
+              <>
+                <Text fontWeight="bold" mb={2}>♚ Black Player</Text>
             <VStack spacing={2}>
               <FormControl>
                 <FormLabel fontSize="xs">API URL</FormLabel>
@@ -412,6 +440,8 @@ export default function GameControls({
                 )}
               </FormControl>
             </VStack>
+              </>
+            )}
 
             <Divider my={3} />
 

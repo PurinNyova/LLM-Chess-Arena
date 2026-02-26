@@ -57,10 +57,22 @@ app.post('/api/game/start', (req, res) => {
     maxRetries: parseInt(req.body.maxRetries || process.env.MAX_RETRIES || '3', 10),
     baseTime: req.body.baseTime != null ? parseFloat(req.body.baseTime) : null, // minutes or null for unlimited
     increment: req.body.increment != null ? parseFloat(req.body.increment) : 0, // seconds
+    humanSide: req.body.humanSide || null, // 'WHITE', 'BLACK', or null
   };
 
-  if (!config.whiteApiKey || !config.blackApiKey) {
-    return res.status(400).json({ error: 'API keys are required. Set them in .env or send in request body.' });
+  // Only require API keys for non-human sides
+  if (!config.humanSide) {
+    if (!config.whiteApiKey || !config.blackApiKey) {
+      return res.status(400).json({ error: 'API keys are required. Set them in .env or send in request body.' });
+    }
+  } else if (config.humanSide === 'WHITE') {
+    if (!config.blackApiKey) {
+      return res.status(400).json({ error: 'API key for Black (LLM) is required.' });
+    }
+  } else if (config.humanSide === 'BLACK') {
+    if (!config.whiteApiKey) {
+      return res.status(400).json({ error: 'API key for White (LLM) is required.' });
+    }
   }
 
   currentGame = new Game(config, (event, data) => {
@@ -91,6 +103,36 @@ app.get('/api/game/state', (req, res) => {
     });
   }
   res.json(currentGame.getState());
+});
+
+// ── Human move ──
+app.post('/api/game/move', (req, res) => {
+  if (!currentGame || currentGame.result) {
+    return res.status(400).json({ error: 'No active game' });
+  }
+  const { move } = req.body;
+  if (!move) {
+    return res.status(400).json({ error: 'Move is required' });
+  }
+  const result = currentGame.applyHumanMove(move);
+  if (result.error) {
+    return res.status(400).json({ error: result.error });
+  }
+  res.json(result);
+});
+
+// ── Get legal moves for a square ──
+app.get('/api/game/legal-moves', (req, res) => {
+  if (!currentGame || currentGame.result) {
+    return res.json({ moves: [] });
+  }
+  const file = parseInt(req.query.file);
+  const rank = parseInt(req.query.rank);
+  if (isNaN(file) || isNaN(rank)) {
+    return res.status(400).json({ error: 'file and rank are required' });
+  }
+  const moves = currentGame.board.getLegalMoves(file, rank);
+  res.json({ moves });
 });
 
 // ── Fetch available models ──

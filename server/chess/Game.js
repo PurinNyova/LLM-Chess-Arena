@@ -23,11 +23,15 @@ export class Game {
     this.maxRetries = config.maxRetries || 3;
     this.emit = emit; // (eventType, data) => void
 
-    this.whiteClient = new LLMClient(config.whiteApiUrl, config.whiteApiKey, config.whiteModel);
-    this.blackClient = new LLMClient(config.blackApiUrl, config.blackApiKey, config.blackModel);
+    // Human side support
+    this.humanSide = config.humanSide || null; // 'WHITE', 'BLACK', or null
+    this._humanMoveResolve = null; // resolver for human move promise
 
-    this.whiteModel = config.whiteModel;
-    this.blackModel = config.blackModel;
+    this.whiteClient = this.humanSide === 'WHITE' ? null : new LLMClient(config.whiteApiUrl, config.whiteApiKey, config.whiteModel);
+    this.blackClient = this.humanSide === 'BLACK' ? null : new LLMClient(config.blackApiUrl, config.blackApiKey, config.blackModel);
+
+    this.whiteModel = this.humanSide === 'WHITE' ? 'Human' : config.whiteModel;
+    this.blackModel = this.humanSide === 'BLACK' ? 'Human' : config.blackModel;
 
     this.aborted = false;
 
@@ -59,6 +63,7 @@ export class Game {
         whiteTime: this.timeWhite,
         blackTime: this.timeBlack,
       },
+      humanSide: this.humanSide,
     };
   }
 
@@ -110,6 +115,7 @@ export class Game {
 
   async _playTurn() {
     const color = this.currentTurn;
+    const isHumanTurn = this.humanSide === color;
     const client = color === Color.WHITE ? this.whiteClient : this.blackClient;
     const model = color === Color.WHITE ? this.whiteModel : this.blackModel;
     const pgn = this.history.toPGN();
@@ -118,7 +124,9 @@ export class Game {
     const moveNumber = Math.floor(this.history.getMoveCount() / 2) + 1;
 
     this.emit('status', {
-      message: `${colorName(color)}'s turn (${model}) — Move ${moveNumber}`,
+      message: isHumanTurn
+        ? `Your turn (${colorName(color)}) — Move ${moveNumber}`
+        : `${colorName(color)}'s turn (${model}) — Move ${moveNumber}`,
     });
 
     // Start timing this turn
@@ -127,7 +135,26 @@ export class Game {
     let moveStr = null;
     let appliedMove = null;
 
-    for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+    if (isHumanTurn) {
+      // Wait for human move via promise
+      moveStr = await new Promise((resolve) => {
+        this._humanMoveResolve = resolve;
+      });
+      this._humanMoveResolve = null;
+
+      if (this.aborted) return;
+
+      // Try to apply
+      appliedMove = this.board.applyMove(moveStr, color);
+      if (!appliedMove) {
+        // This shouldn't normally happen since we validate in the endpoint,
+        // but handle gracefully
+        this.emit('error', { color, model, message: `Invalid move "${moveStr}"`, attempt: 1, maxRetries: 1 });
+        return; // Will loop again and wait for another move
+      }
+    } else {
+      // LLM turn (existing logic)
+      for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
       if (this.aborted) return;
       try {
         let thinkingBuf = '';
@@ -182,6 +209,7 @@ export class Game {
       this.result = `${colorName(oppositeColor(color))} wins by forfeit (${colorName(color)} failed to make a legal move)`;
       return;
     }
+    } // end else (LLM turn)
 
     // Deduct time and add increment
     if (!this.unlimited && this.turnStartedAt) {
@@ -288,5 +316,32 @@ export class Game {
       clearInterval(this.clockInterval);
       this.clockInterval = null;
     }
+    // Resolve any pending human move promise
+    if (this._humanMoveResolve) {
+      this._humanMoveResolve(null);
+      this._humanMoveResolve = null;
+    }
+  }
+
+  /**
+   * Called by the human move endpoint to submit a move.
+   * Returns the applied move or null if invalid.
+   */
+  applyHumanMove(moveStr) {
+    if (!this.humanSide || this.currentTurn !== this.humanSide) {
+      return { error: 'Not your turn' };
+    }
+    // Validate the move on a copy first
+    const testBoard = this.board.copy();
+    const testMove = testBoard.applyMove(moveStr, this.currentTurn);
+    if (!testMove) {
+      return { error: `Invalid move: ${moveStr}` };
+    }
+    // Resolve the pending promise — the game loop will apply the move
+    if (this._humanMoveResolve) {
+      this._humanMoveResolve(moveStr);
+      return { ok: true, notation: testMove.notation };
+    }
+    return { error: 'No pending move request' };
   }
 }

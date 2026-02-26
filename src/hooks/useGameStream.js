@@ -17,6 +17,7 @@ export function useGameStream() {
   const [gameActive, setGameActive] = useState(false);
   const [captured, setCaptured] = useState({ white: [], black: [] });
   const [clock, setClock] = useState(null); // { whiteTime, blackTime } or null
+  const [humanSide, setHumanSide] = useState(null); // 'WHITE', 'BLACK', or null
 
   const eventSourceRef = useRef(null);
 
@@ -47,6 +48,7 @@ export function useGameStream() {
       setBlackModel(data.blackModel);
       if (data.captured) setCaptured(data.captured);
       if (data.clock !== undefined) setClock(data.clock);
+      if (data.humanSide !== undefined) setHumanSide(data.humanSide);
     });
 
     es.addEventListener('board', (e) => {
@@ -142,6 +144,7 @@ export function useGameStream() {
     setGameActive(true);
     setCaptured({ white: [], black: [] });
     setClock(null);
+    setHumanSide(config.humanSide || null);
 
     const res = await fetch('/api/game/start', {
       method: 'POST',
@@ -186,10 +189,23 @@ export function useGameStream() {
     return data;
   }, []);
 
+  const submitMove = useCallback(async (move) => {
+    const res = await fetch('/api/game/move', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ move }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'Invalid move');
+    }
+    return data;
+  }, []);
+
   return {
     board, turn, pgn, moveCount, result,
     whiteModel, blackModel, lastMove,
-    chatLog, connected, gameActive, captured, clock,
-    startGame, resetGame, stopGame,
+    chatLog, connected, gameActive, captured, clock, humanSide,
+    startGame, resetGame, stopGame, submitMove,
   };
 }
