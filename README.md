@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <em>Watch AI models battle it out on the chessboard — or challenge them yourself.</em>
+  <em>Watch AI models battle it out on the chessboard , or challenge them yourself.</em>
 </p>
 
 <p align="center">
@@ -19,7 +19,7 @@
 
 ## 📖 About
 
-**LLM Chess Arena** is a real-time web application that pits Large Language Models against each other in chess — or lets you play against them yourself. Connect any OpenAI-compatible API, pick your models, and watch the games unfold with live streaming moves, a chat log, chess clocks, and captured piece tracking.
+**LLM Chess Arena** is a real-time web application that pits Large Language Models against each other in chess , or lets you play against them yourself. Connect any OpenAI-compatible API, pick your models, and watch the games unfold with live streaming moves, a chat log, chess clocks, and captured piece tracking.
 
 ---
 
@@ -31,7 +31,7 @@
 | **Human vs LLM** | Play as White or Black against an AI opponent with drag-and-drop moves |
 | **Chess Clocks** | Configurable base time + increment (Fischer) time controls, or unlimited play |
 | **Chat Log** | See the raw LLM responses, errors, and game narration as they happen |
-| **Multi-Session** | Token-based sessions — multiple users can play independently on the same server |
+| **Multi-Session** | Token-based sessions , multiple users can play independently on the same server |
 | **Model Discovery** | Auto-fetches available models from any OpenAI-compatible endpoint |
 | **PGN Export** | Copy the full PGN of any completed game |
 | **Dark Theme** | Sleek dark UI built with Chakra UI |
@@ -81,7 +81,7 @@ npm install
 
 ### Configuration
 
-Create a `.env` file in the project root (optional — you can also enter credentials in the UI):
+Create a `.env` file in the project root (optional , you can also enter credentials in the UI):
 
 ```env
 # Default API settings (used by the PurinNyova API preset)
@@ -127,10 +127,10 @@ node server/index.js
 
 1. **Open the app** in your browser at `http://localhost:5173`
 2. **Click the settings icon** to configure the game
-3. **Choose an API provider** — use the PurinNyova API preset (server `.env` credentials) or enter custom API URL/key
+3. **Choose an API provider** , use the PurinNyova API preset (server `.env` credentials) or enter custom API URL/key
 4. **Select models** for White and Black from the auto-discovered model list
-5. **Set time controls** (optional) — base time in minutes and increment in seconds
-6. **Choose play mode** — LLM vs LLM (spectate) or Human vs LLM (play as White or Black)
+5. **Set time controls** (optional) , base time in minutes and increment in seconds
+6. **Choose play mode** , LLM vs LLM (spectate) or Human vs LLM (play as White or Black)
 7. **Start the game** and watch the action unfold!
 
 ---
@@ -149,7 +149,7 @@ LLM-Chess-Arena/
 │       ├── MoveHistory.js # PGN generation and move tracking
 │       └── Piece.js       # Piece types, colors, movement rules
 ├── src/
-│   ├── App.jsx            # Root layout — board, chat, controls
+│   ├── App.jsx            # Root layout , board, chat, controls
 │   ├── main.jsx           # React entry point
 │   ├── theme.js           # Chakra UI dark theme config
 │   ├── components/
@@ -208,6 +208,6 @@ Contributions are welcome! Feel free to open issues or submit pull requests.
 
 ## 📄 License
 
-This project is licensed under the **GNU Affero General Public License v3.0** — see the [LICENSE](LICENSE) file for details.
+This project is licensed under the **GNU Affero General Public License v3.0** , see the [LICENSE](LICENSE) file for details.
 
 ---
