@@ -12,10 +12,10 @@ const theme = extendTheme({
   },
   colors: {
     board: {
-      light: '#F0D9B5',
-      dark: '#B58863',
-      highlightLight: '#F7EC5D',
-      highlightDark: '#DAC32B',
+      light: '#EBECD0',
+      dark: '#779556',
+      highlightLight: '#F5F682',
+      highlightDark: '#BBCC44',
     },
   },
 });
