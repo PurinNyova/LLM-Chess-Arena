@@ -29,10 +29,8 @@
 |---|---|
 | **LLM vs LLM** | Fully automated games between any two OpenAI-compatible models |
 | **Human vs LLM** | Play as White or Black against an AI opponent with drag-and-drop moves |
-| **Live Streaming** | Server-Sent Events (SSE) push every move, status update, and clock tick in real time |
 | **Chess Clocks** | Configurable base time + increment (Fischer) time controls, or unlimited play |
 | **Chat Log** | See the raw LLM responses, errors, and game narration as they happen |
-| **Captured Pieces** | Visual display of taken pieces with material advantage indicator |
 | **Multi-Session** | Token-based sessions — multiple users can play independently on the same server |
 | **Model Discovery** | Auto-fetches available models from any OpenAI-compatible endpoint |
 | **PGN Export** | Copy the full PGN of any completed game |
@@ -63,7 +61,7 @@
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -125,7 +123,7 @@ node server/index.js
 
 ---
 
-## 🎮 Usage
+## Usage
 
 1. **Open the app** in your browser at `http://localhost:5173`
 2. **Click the settings icon** to configure the game
@@ -137,7 +135,7 @@ node server/index.js
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 LLM-Chess-Arena/
@@ -170,7 +168,7 @@ LLM-Chess-Arena/
 
 ---
 
-## 🔌 API Endpoints
+## API Endpoints
 
 | Method | Endpoint | Description |
 |---|---|---|
@@ -196,7 +194,7 @@ LLM-Chess-Arena/
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Feel free to open issues or submit pull requests.
 
@@ -213,7 +211,3 @@ Contributions are welcome! Feel free to open issues or submit pull requests.
 This project is licensed under the **GNU Affero General Public License v3.0** — see the [LICENSE](LICENSE) file for details.
 
 ---
-
-<p align="center">
-  Made with ♟️ and LLMs
-</p>
