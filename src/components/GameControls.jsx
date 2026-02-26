@@ -54,6 +54,7 @@ export default function GameControls({
     playerMode: 'llm_vs_llm', // 'llm_vs_llm', 'human_white', 'human_black'
     whiteProvider: 'purinnyova', // 'purinnyova' or 'custom'
     blackProvider: 'purinnyova',
+    bypassPassword: '',
   });
 
   // Model list fetching
@@ -189,14 +190,33 @@ export default function GameControls({
       } else if (config.playerMode === 'human_black') {
         body.humanSide = 'BLACK';
       }
-      await onStartGame(body);
+
+      // Bypass password (only sent when using PurinNyova API)
+      if (config.bypassPassword.trim()) {
+        body.password = config.bypassPassword.trim();
+      }
+
+      const data = await onStartGame(body);
+
+      // Show bypass status
+      if (data && data.bypass === false) {
+        toast({
+          title: 'Rate limit active',
+          description: 'Bypass not enabled — 20 min cooldown between PurinNyova API games.',
+          status: 'info',
+          duration: 5000,
+          isClosable: true,
+        });
+      }
+
       onClose();
     } catch (err) {
+      const isRateLimit = err.message.includes('Rate limited');
       toast({
-        title: 'Failed to start game',
+        title: isRateLimit ? '⏳ Rate Limited' : 'Failed to start game',
         description: err.message,
-        status: 'error',
-        duration: 5000,
+        status: isRateLimit ? 'warning' : 'error',
+        duration: isRateLimit ? 8000 : 5000,
         isClosable: true,
       });
     }
@@ -612,6 +632,26 @@ export default function GameControls({
                 </HStack>
               )}
             </VStack>
+
+            {(config.whiteProvider === 'purinnyova' || config.blackProvider === 'purinnyova') && (
+              <>
+                <Divider my={3} />
+                <Text fontWeight="bold" mb={2}>🔑 PurinNyova API Limit Bypass</Text>
+                <FormControl>
+                  <FormLabel fontSize="xs">Bypass Password (optional)</FormLabel>
+                  <Input
+                    size="sm"
+                    type="password"
+                    placeholder="Enter bypass password..."
+                    value={config.bypassPassword}
+                    onChange={e => setConfig(c => ({ ...c, bypassPassword: e.target.value }))}
+                  />
+                  <Text fontSize="2xs" color="gray.500" mt={1}>
+                    Without bypass, you can only start 1 game every 20 minutes using the PurinNyova API.
+                  </Text>
+                </FormControl>
+              </>
+            )}
           </ModalBody>
           <ModalFooter>
             <Button variant="ghost" mr={3} onClick={onClose}>Cancel</Button>

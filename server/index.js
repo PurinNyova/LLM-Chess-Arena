@@ -18,7 +18,10 @@ app.use(express.json());
 const games = new Map();      // token → Game
 const sseClients = new Map(); // token → Set<res>
 const modelCache = new Map(); // key: `${apiUrl}|${apiKey}` → { models, fetchedAt }
+const rateLimitMap = new Map(); // token → timestamp of last PurinNyova API game start
 const IDLE_CLEANUP_MS = 60 * 60 * 1000; // 1 hour
+const RATE_LIMIT_MS = 20 * 60 * 1000;   // 20 minutes between PurinNyova API games
+const BYPASS_PASSWORD = process.env.BYPASS_PASSWORD || '';
 
 /** Get or create a token from the request query/header */
 function getToken(req) {
@@ -107,6 +110,32 @@ app.post('/api/game/start', (req, res) => {
     humanSide: req.body.humanSide || null, // 'WHITE', 'BLACK', or null
   };
 
+  // Determine if either side uses the PurinNyova API (no custom API url/key sent)
+  const whiteUsesPurinNyova = !req.body.whiteApiUrl && !req.body.whiteApiKey && config.humanSide !== 'WHITE';
+  const blackUsesPurinNyova = !req.body.blackApiUrl && !req.body.blackApiKey && config.humanSide !== 'BLACK';
+  const usesPurinNyovaApi = whiteUsesPurinNyova || blackUsesPurinNyova;
+
+  // Bypass password check
+  const bypassPassword = req.body.password || '';
+  const bypassEnabled = BYPASS_PASSWORD && bypassPassword === BYPASS_PASSWORD;
+
+  // Rate limiting for PurinNyova API (per token, 20 min cooldown)
+  if (usesPurinNyovaApi && !bypassEnabled) {
+    const lastGameTime = rateLimitMap.get(token);
+    if (lastGameTime) {
+      const elapsed = Date.now() - lastGameTime;
+      if (elapsed < RATE_LIMIT_MS) {
+        const remainingMs = RATE_LIMIT_MS - elapsed;
+        const remainingMin = Math.ceil(remainingMs / 60000);
+        return res.status(429).json({
+          error: `Rate limited: you can start a new game using the PurinNyova API in ${remainingMin} minute${remainingMin !== 1 ? 's' : ''}. Use a bypass password or switch to Custom API.`,
+          remainingMs,
+          bypass: false,
+        });
+      }
+    }
+  }
+
   // Only require API keys for non-human sides
   if (!config.humanSide) {
     if (!config.whiteApiKey || !config.blackApiKey) {
@@ -122,12 +151,17 @@ app.post('/api/game/start', (req, res) => {
     }
   }
 
+  // Record rate limit timestamp if using PurinNyova API (and not bypassed)
+  if (usesPurinNyovaApi && !bypassEnabled) {
+    rateLimitMap.set(token, Date.now());
+  }
+
   const game = new Game(config, (event, data) => {
     broadcastToToken(token, event, data);
   });
   games.set(token, game);
 
-  res.json({ message: 'Game started', state: game.getState() });
+  res.json({ message: 'Game started', state: game.getState(), bypass: bypassEnabled });
 
   // Run the game loop asynchronously (don't await in the request handler)
   game.play().catch(err => {
