@@ -205,6 +205,8 @@ export class Game {
             attempt,
             maxRetries: this.maxRetries,
           });
+          // Brief cooldown before retrying in case of transient API issues
+          await new Promise(r => setTimeout(r, 1000));
         }
       } catch (err) {
         this.emit('error', {
